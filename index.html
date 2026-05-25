@@ -31,6 +31,12 @@
         .sidebar-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
         .sidebar-header h2 { font-size: 16px; font-weight: 800; background: linear-gradient(135deg,var(--accent),var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .sidebar-header small { display: block; font-size: 11px; color: var(--text2); margin-top: 2px; }
+        .lang-toggle { display: flex; gap: 0; padding: 8px 20px; border-bottom: 1px solid var(--border); }
+        .lang-btn { flex: 1; padding: 5px 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg2); color: var(--text2); transition: all 0.15s; text-align: center; font-family: inherit; }
+        .lang-btn:first-child { border-radius: 5px 0 0 5px; }
+        .lang-btn:last-child { border-radius: 0 5px 5px 0; }
+        .lang-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+        .lang-btn:not(.active):hover { background: var(--bg3); color: var(--text); }
         .sidebar-nav { padding: 8px 0; }
         .sidebar-cat { border-bottom: 1px solid var(--border); }
         .sidebar-cat-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text); transition: background 0.15s; }
@@ -123,6 +129,10 @@
                 <h2>📰 News Archive</h2>
                 <small id="headerInfo">Automated news aggregation</small>
             </div>
+            <div class="lang-toggle">
+                <button class="lang-btn active" data-lang="en" onclick="switchLang('en')">🇬🇧 EN</button>
+                <button class="lang-btn" data-lang="id" onclick="switchLang('id')">🇮🇩 ID</button>
+            </div>
             <nav class="sidebar-nav" id="sidebarNav"></nav>
         </aside>
 
@@ -140,27 +150,81 @@
         let currentCat = null;
         let currentFile = null;
         let articleOrder = [];
+        let currentLang = 'en';
+
+        const titles = {
+            en: {
+                site: 'Automated news aggregation',
+                title: 'Automated news aggregation — powered by Hermes Agent 🤖',
+                home: 'No articles loaded yet. Make sure articles.json exists in the repo root.',
+                back: '← Back to categories',
+                noArticles: 'No articles found',
+                noArticlesDesc: 'No articles available for this category yet.',
+                notFound: 'Article not found',
+                backList: '← Back to list',
+                upList: '↑ Back to list',
+                prev: '← Previous',
+                next: 'Next →'
+            },
+            id: {
+                site: 'Agregasi berita otomatis',
+                title: 'Agregasi berita otomatis — didukung oleh Hermes Agent 🤖',
+                home: 'Belum ada artikel yang dimuat. Pastikan articles.json ada di root repo.',
+                back: '← Kembali ke kategori',
+                noArticles: 'Tidak ada artikel',
+                noArticlesDesc: 'Belum ada artikel untuk kategori ini.',
+                notFound: 'Artikel tidak ditemukan',
+                backList: '← Kembali ke daftar',
+                upList: '↑ Kembali ke daftar',
+                prev: '← Sebelumnya',
+                next: 'Selanjutnya →'
+            }
+        };
 
         const categories = {
-            baremetal: { emoji: '🖥️', name: 'Bare Metal', desc: 'Bare-metal server & hardware news' },
-            devops: { emoji: '⚙️', name: 'DevOps', desc: 'DevOps, SRE & Cloud Engineering news' },
-            selfhosted: { emoji: '🏠', name: 'Self Hosted', desc: 'Self-hosted tools & applications' },
-            ekonomi: { emoji: '📊', name: 'Ekonomi', desc: 'Indonesian & Global Economy updates' },
-            'k8s-security': { emoji: '🔒', name: 'K8s Security', desc: 'Kubernetes Security briefings' },
-            'tech-foundations': { emoji: '🏗️', name: 'Tech Foundations', desc: 'CNCF, Apache, Linux & OpenInfra updates' },
-            f1: { emoji: '🏎️', name: 'F1', desc: 'Formula 1 race analysis' },
-            motogp: { emoji: '🏍️', name: 'MotoGP', desc: 'MotoGP race analysis' }
+            baremetal: { emoji: '🖥️', name: { en: 'Bare Metal', id: 'Bare Metal' }, desc: { en: 'Bare-metal server & hardware news', id: 'Berita server bare-metal & hardware' } },
+            devops: { emoji: '⚙️', name: { en: 'DevOps', id: 'DevOps' }, desc: { en: 'DevOps, SRE & Cloud Engineering news', id: 'Berita DevOps, SRE & Cloud Engineering' } },
+            selfhosted: { emoji: '🏠', name: { en: 'Self Hosted', id: 'Self Hosted' }, desc: { en: 'Self-hosted tools & applications', id: 'Aplikasi & tools self-hosted' } },
+            ekonomi: { emoji: '📊', name: { en: 'Ekonomi', id: 'Ekonomi' }, desc: { en: 'Indonesian & Global Economy updates', id: 'Update Ekonomi Indonesia & Global' } },
+            'k8s-security': { emoji: '🔒', name: { en: 'K8s Security', id: 'Keamanan K8s' }, desc: { en: 'Kubernetes Security briefings', id: 'Briefing keamanan Kubernetes' } },
+            'tech-foundations': { emoji: '🏗️', name: { en: 'Tech Foundations', id: 'Tech Foundations' }, desc: { en: 'CNCF, Apache, Linux & OpenInfra updates', id: 'Update CNCF, Apache, Linux & OpenInfra' } },
+            f1: { emoji: '🏎️', name: { en: 'F1', id: 'F1' }, desc: { en: 'Formula 1 race analysis', id: 'Analisis balapan Formula 1' } },
+            motogp: { emoji: '🏍️', name: { en: 'MotoGP', id: 'MotoGP' }, desc: { en: 'MotoGP race analysis', id: 'Analisis balapan MotoGP' } }
         };
 
         const categoryOrder = ['devops', 'baremetal', 'selfhosted', 'ekonomi', 'k8s-security', 'tech-foundations', 'f1', 'motogp'];
 
+        function t(str) {
+            return titles[currentLang][str] || titles['en'][str] || str;
+        }
+
+        function catName(cat) {
+            return categories[cat]?.name[currentLang] || categories[cat]?.name['en'] || cat;
+        }
+
+        function catDesc(cat) {
+            return categories[cat]?.desc[currentLang] || categories[cat]?.desc['en'] || '';
+        }
+
+        function switchLang(lang) {
+            currentLang = lang;
+            document.querySelectorAll('.lang-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.lang === lang);
+            });
+            document.getElementById('headerInfo').textContent = titles[lang].site;
+            renderSidebar();
+            if (currentFile && currentCat) {
+                loadArticle(currentCat, currentFile);
+            } else if (currentCat) {
+                showCategory(currentCat);
+            } else {
+                showHome();
+            }
+        }
+
         async function init() {
-            // Fetch available articles from each category
             const promises = categoryOrder.map(async (cat) => {
                 try {
-                    const resp = await fetch(`${cat}/?t=${Date.now()}`, { method: 'HEAD' });
-                    // We can't list files via HTTP, so we'll try known patterns
-                    // Instead, use GitHub API or try common dates
                     articles[cat] = await discoverArticles(cat);
                 } catch (e) {
                     articles[cat] = [];
@@ -174,7 +238,7 @@
             const hash = location.hash.slice(1);
             if (hash) {
                 const parts = hash.split('/');
-                if (parts.length >= 2 && categories[parts[0]]) {
+                if (parts.length >= 1 && categories[parts[0]]) {
                     showCategory(parts[0]);
                     if (parts[1]) {
                         loadArticle(parts[0], parts[1]);
@@ -186,7 +250,6 @@
         }
 
         async function discoverArticles(cat) {
-            // Try fetching a manifest/index file first
             try {
                 const resp = await fetch(`articles.json?t=${Date.now()}`);
                 if (resp.ok) {
@@ -195,14 +258,12 @@
                 }
             } catch(e) {}
 
-            // Fallback: generate from known articles (will be updated on each cron run)
-            // The SPA will dynamically update as new articles are pushed
             return [];
         }
 
         function renderSidebar() {
             const nav = document.getElementById('sidebarNav');
-            nav.innerHTML = '<div class="sidebar-cat"><div class="sidebar-cat-header" onclick="showHome()" style="cursor:pointer;border-bottom:1px solid var(--border);margin-bottom:4px"><span>🏠 Home</span></div></div>';
+            nav.innerHTML = `<div class="sidebar-cat"><div class="sidebar-cat-header" onclick="showHome()" style="cursor:pointer;border-bottom:1px solid var(--border);margin-bottom:4px"><span>🏠 ${currentLang === 'en' ? 'Home' : 'Beranda'}</span></div></div>`;
             
             categoryOrder.forEach(cat => {
                 const info = categories[cat];
@@ -211,7 +272,7 @@
                 div.className = 'sidebar-cat';
                 div.innerHTML = `
                     <div class="sidebar-cat-header" onclick="toggleCat('${cat}')">
-                        <span>${info.emoji} ${info.name}</span>
+                        <span>${info.emoji} ${catName(cat)}</span>
                         <span class="count">${list.length}</span>
                         <span class="arrow">▶</span>
                     </div>
@@ -223,7 +284,6 @@
                 list.forEach(file => {
                     const a = document.createElement('a');
                     a.href = `#/${cat}/${file}`;
-                    // Format date: remove .md extension and show nicely
                     const display = file.replace('.md', '').replace(/-/g, '/');
                     a.textContent = display;
                     a.dataset.cat = cat;
@@ -237,7 +297,6 @@
                     listDiv.appendChild(a);
                 });
 
-                // Auto-open if has articles
                 if (list.length > 0) {
                     setTimeout(() => {
                         listDiv.classList.add('open');
@@ -263,7 +322,7 @@
             let html = `
                 <div class="home-header">
                     <h1>📰 News Archive</h1>
-                    <p>Automated news aggregation — powered by Hermes Agent 🤖</p>
+                    <p>${t('title')}</p>
                 </div>
                 <div class="categories-grid">
             `;
@@ -274,15 +333,15 @@
                 html += `
                     <div class="cat-card" onclick="showCategory('${cat}')">
                         <span class="emoji">${info.emoji}</span>
-                        <h3>${info.name}</h3>
-                        <div class="desc">${info.desc}</div>
-                        <div class="meta">${count} article${count !== 1 ? 's' : ''}</div>
+                        <h3>${catName(cat)}</h3>
+                        <div class="desc">${catDesc(cat)}</div>
+                        <div class="meta">${count} ${currentLang === 'en' ? 'article' : 'artikel'}${count !== 1 ? (currentLang === 'en' ? 's' : '') : ''}</div>
                     </div>
                 `;
             });
             html += `</div>`;
             if (total === 0) {
-                html += `<p style="text-align:center;color:var(--text2);margin-top:32px;font-size:14px">No articles loaded yet. Make sure articles.json exists in the repo root.</p>`;
+                html += `<p style="text-align:center;color:var(--text2);margin-top:32px;font-size:14px">${t('home')}</p>`;
             }
             c.innerHTML = html;
 
@@ -297,18 +356,17 @@
             const c = document.getElementById('pageContent');
 
             if (list.length === 0) {
-                // Try to discover articles on demand
                 await discoverArticlesOnDemand(cat);
                 const refreshed = articles[cat] || [];
                 if (refreshed.length === 0) {
                     c.innerHTML = `
                         <div class="article-list">
-                            <a class="back" onclick="showHome()">← Back to categories</a>
-                            <h2>${info.emoji} ${info.name}</h2>
+                            <a class="back" onclick="showHome()">${t('back')}</a>
+                            <h2>${info.emoji} ${catName(cat)}</h2>
                             <div class="error-state">
                                 <div class="emoji">📭</div>
-                                <h3>No articles found</h3>
-                                <p>No articles available for this category yet.</p>
+                                <h3>${t('noArticles')}</h3>
+                                <p>${t('noArticlesDesc')}</p>
                             </div>
                         </div>
                     `;
@@ -318,9 +376,9 @@
 
             c.innerHTML = `
                 <div class="article-list">
-                    <a class="back" onclick="showHome()">← Back to categories</a>
-                    <h2>${info.emoji} ${info.name}</h2>
-                    <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">${info.desc}</p>
+                    <a class="back" onclick="showHome()">${t('back')}</a>
+                    <h2>${info.emoji} ${catName(cat)}</h2>
+                    <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">${catDesc(cat)}</p>
                     <div id="articleItems"></div>
                 </div>
             `;
@@ -332,7 +390,7 @@
                 const a = document.createElement('a');
                 a.className = 'article-item';
                 a.href = `#/${cat}/${file}`;
-                a.innerHTML = `<div class="date">${display}</div><div class="title">${info.name} — ${display}</div>`;
+                a.innerHTML = `<div class="date">${display}</div><div class="title">${catName(cat)} — ${display}</div>`;
                 a.onclick = (e) => {
                     e.preventDefault();
                     loadArticle(cat, file);
@@ -352,7 +410,6 @@
                     return;
                 }
             }
-            // Try direct fetch of common date patterns
             const today = new Date();
             const found = [];
             for (let i = 0; i < 14; i++) {
@@ -371,15 +428,12 @@
         }
 
         function updateSidebarCounts() {
-            categoryOrder.forEach(cat => {
-                const headers = document.querySelectorAll('.sidebar-cat-header');
-                // Update counts by re-rendering sidebar
-            });
             renderSidebar();
         }
 
         async function loadArticle(cat, file) {
             currentFile = file;
+            currentCat = cat;
             const c = document.getElementById('pageContent');
             c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
@@ -396,14 +450,14 @@
                 c.innerHTML = `
                     <div class="markdown-body">
                         <div class="article-meta">
-                            <span class="tag blue">${info.emoji} ${info.name}</span>
+                            <span class="tag blue">${info.emoji} ${catName(cat)}</span>
                             <span class="tag green">${display}</span>
                         </div>
                         ${html}
                         <div class="article-nav">
-                            <a id="prevArticle" href="#">← Previous</a>
-                            <a href="#" onclick="showCategory('${cat}'); return false;">↑ Back to list</a>
-                            <a id="nextArticle" href="#">Next →</a>
+                            <a id="prevArticle" href="#">${t('prev')}</a>
+                            <a href="#" onclick="showCategory('${cat}'); return false;">${t('upList')}</a>
+                            <a id="nextArticle" href="#">${t('next')}</a>
                         </div>
                     </div>
                 `;
@@ -443,9 +497,9 @@
                 c.innerHTML = `
                     <div class="error-state">
                         <div class="emoji">🔍</div>
-                        <h3>Article not found</h3>
-                        <p>Could not load <code>${cat}/${file}</code></p>
-                        <p><a href="#" onclick="showCategory('${cat}'); return false;">← Back to ${categories[cat]?.name || cat}</a></p>
+                        <h3>${t('notFound')}</h3>
+                        <p>${currentLang === 'en' ? `Could not load <code>${cat}/${file}</code>` : `Tidak dapat memuat <code>${cat}/${file}</code>`}</p>
+                        <p><a href="#" onclick="showCategory('${cat}'); return false;">${t('backList')}</a></p>
                     </div>
                 `;
             }
